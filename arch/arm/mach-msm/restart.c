@@ -146,7 +146,7 @@ static void __msm_power_off(int lower_pshold)
 #ifdef CONFIG_MSM_DLOAD_MODE
 	set_dload_mode(0);
 #endif
-	if (machine_is_apq8064_flo() || machine_is_apq8064_deb()) {
+	if (machine_is_apq8064_flo() || machine_is_apq8064_deb() || machine_is_apq8064_duma()) {
 		if (get_cable_status()) {
 			printk(KERN_CRIT "Go to charger mode!");
 			reset = 1;
@@ -279,6 +279,8 @@ void msm_restart(char mode, const char *cmd)
 			__raw_writel(0x77665500, restart_reason);
 		} else if (!strncmp(cmd, "recovery", 8)) {
 			__raw_writel(0x77665502, restart_reason);
+		} else if (!strncmp(cmd, "rtc", 8)) {
+			__raw_writel(0x77665503, restart_reason);
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			unsigned long code;
 			code = simple_strtoul(cmd + 4, NULL, 16) & 0xff;

@@ -39,6 +39,7 @@
 #include <linux/ioctl.h>
 #include <asm/uaccess.h>
 #include <asm/mach-types.h>
+#include <mach/board_asustek.h>
 
 #define smb345_CHARGE		0x00
 #define smb345_CHRG_CRNTS	0x01
@@ -99,6 +100,7 @@
 #define BAT_OVER_VOLT_MASK 0x40
 #define STAT_OUTPUT_EN		0x20
 #define GPIO_AC_OK		APQ_AP_ACOK
+#define MAX_USBIN 0
 #define WPC_DEBOUNCE_INTERVAL	(1 * HZ)
 #define WPC_SET_CURT_INTERVAL	(2 * HZ)
 #define WPC_INIT_DET_INTERVAL	(22 * HZ)
@@ -278,6 +280,81 @@ static int smb345_pin_control(bool state)
 	return ret;
 }
 
+
+int usb_switch_remove_usb_path_setting(void)
+{
+	struct i2c_client *client = charger->client;
+	int ret = 0;
+
+	ret = smb345_volatile_writes(client, smb345_ENABLE_WRITE);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s() error in configuring charger..\n",__func__);
+		goto error;
+	}
+
+	SMB_NOTICE("Set ICL=0x01\n");
+	ret = smb345_write(client, smb345_CHRG_CRNTS, 0x01);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s(): Failed in writing 0x01 to register"
+			"0x%02x\n", __func__, smb345_CHRG_CRNTS);
+		goto error;
+	}
+
+	ret = smb345_volatile_writes(client, smb345_DISABLE_WRITE);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s() error in configuring charger..\n",__func__);
+		goto error;
+	}
+
+error:
+	return ret;
+}
+
+int usb_switch_remove_ac_path_setting(void)
+{
+	struct i2c_client *client = charger->client;
+	int ret = 0;
+
+	ret = smb345_volatile_writes(client, smb345_ENABLE_WRITE);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s() error in configuring charger..\n",__func__);
+		goto error;
+	}
+
+	SMB_NOTICE("Set USB to HC Mode\n");
+	ret = smb345_update_reg(client, smb345_CMD_REG_B, 0x03);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s() error in configuring charger..\n",__func__);
+		goto error;
+	}
+
+	ret = smb345_read(client, smb345_PIN_CTRL);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s(): Failed in reading 0x%02x\n",
+				__func__, smb345_PIN_CTRL);
+		goto error;
+	}
+
+	SMB_NOTICE("Set Register Control, retval=%x setting=%x\n", ret, (int)(ret & (~(BIT(4)))));
+	ret = smb345_write(client, smb345_PIN_CTRL, (u8)(ret & (~(BIT(4)))));
+	if (ret < 0) {
+		dev_err(&client->dev, "%s(): Failed in writing 0x%02x to register"
+			"0x%02x\n", __func__, (int)(ret & (~(BIT(4)))), smb345_PIN_CTRL);
+		goto error;
+	}
+
+	ret = smb345_volatile_writes(client, smb345_DISABLE_WRITE);
+	if (ret < 0) {
+		dev_err(&client->dev, "%s() error in configuring charger..\n",__func__);
+		goto error;
+	}
+
+error:
+	return ret;
+
+}
+
+
 int smb345_charger_enable(bool state)
 {
 	struct i2c_client *client = charger->client;
@@ -345,7 +422,7 @@ error:
 }
 
 int
-smb345_set_InputCurrentlimit(struct i2c_client *client, u32 current_setting)
+smb345_set_InputCurrentlimit(struct i2c_client *client, u32 current_setting, int usb_dc)
 {
 	int ret = 0, retval;
 	u8 setting = 0;
@@ -610,7 +687,7 @@ static void wireless_reset(void)
 	charger->wpc_curr_limit = 300;
 	charger->wpc_curr_limit_count = 0;
 	if (ac_on) {
-		smb345_set_InputCurrentlimit(charger->client, 1200);
+		smb345_set_InputCurrentlimit(charger->client, 1200, MAX_USBIN);
 		smb345_vflt_setting();
 	}
 	bq27541_wireless_callback(wireless_on);
@@ -675,7 +752,8 @@ void reconfig_AICL(void)
 
 			if ((retval & 0xF) <= 0x1) {
 				SMB_NOTICE("reconfig input current limit\n");
-				smb345_set_InputCurrentlimit(client, 1200);
+				usb_switch_remove_ac_path_setting();
+				smb345_set_InputCurrentlimit(client, 1800, MAX_USBIN);
 			}
 		}
 	}
@@ -724,6 +802,21 @@ static int smb345_configure_otg(struct i2c_client *client)
 			"register 0x%02x\n", __func__, smb345_CMD_REG);
 		goto error;
        }
+	if (machine_is_apq8064_duma()){
+		if (asustek_get_hw_rev() == HW_REV_C || asustek_get_hw_rev() == HW_REV_D ){
+			ret = smb345_read(client, smb345_SYSOK_USB3);
+			if (ret < 0) {
+				dev_err(&client->dev, "%s: err%d\n",__func__,ret);
+				goto error;
+			}
+			ret = smb345_write(client, smb345_SYSOK_USB3, (ret | 0x01));
+       			if (ret < 0) {
+				dev_err(&client->dev, "%s: err%d\n",__func__, ret);
+				goto error;
+			}
+		}
+	}
+
 
 	/* Change "OTG output current limit" to 250mA */
       ret = smb345_write(client, smb345_OTG_TLIM_REG, 0x34);
@@ -866,6 +959,8 @@ int usb_cable_type_detect(unsigned int chgr_type)
 
 		if (chgr_type == CHARGER_SDP) {
 			SMB_NOTICE("Cable: SDP\n");
+			if (machine_is_apq8064_duma())
+				usb_switch_remove_usb_path_setting();
 			smb345_vflt_setting();
 			success =  bq27541_battery_callback(usb_cable);
 			touch_callback(usb_cable);
@@ -885,7 +980,12 @@ int usb_cable_type_detect(unsigned int chgr_type)
 				touch_callback(usb_cable);
 				goto done;
 			}
-			smb345_set_InputCurrentlimit(client, 1200);
+			if (machine_is_apq8064_duma()){
+				usb_switch_remove_ac_path_setting();
+				smb345_set_InputCurrentlimit(client, 1800, MAX_USBIN);
+			}
+			else
+				smb345_set_InputCurrentlimit(client, 1200, MAX_USBIN);
 			smb345_vflt_setting();
 			success =  bq27541_battery_callback(ac_cable);
 			touch_callback(ac_cable);
@@ -1362,8 +1462,8 @@ static int smb345_suspend(struct i2c_client *client, pm_message_t mesg)
 static int smb345_resume(struct i2c_client *client)
 {
 	printk("smb345_resume+\n");
-	if (wireless_on != !(gpio_get_value(charger->wpc_pok_gpio)))
-		wake_lock_timeout(&charger_wakelock, 2*HZ);
+	/*if (wireless_on != !(gpio_get_value(charger->wpc_pok_gpio)))
+		wake_lock_timeout(&charger_wakelock, 2*HZ); commented for duma kernel panic null pointer */
 	printk("smb345_resume-\n");
 	return 0;
 }

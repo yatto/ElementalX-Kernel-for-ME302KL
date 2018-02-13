@@ -342,6 +342,64 @@ static int pm8xxx_pwm_enable(struct pwm_device *pwm)
 	return rc;
 }
 
+static void pm8xxx_pwm_calc_period_force_9bit_mode(unsigned int period_us,
+	struct pm8xxx_pwm_period *period)
+{
+	int	n, m, clk, div;
+	int	best_m, best_div, best_clk;
+	unsigned int	last_err, cur_err, min_err;
+	unsigned int	tmp_p, period_n;
+
+	/* PWM Period / N */
+	period_n = (period_us * NSEC_PER_USEC) >> 9;
+	n = 9;
+
+	min_err = last_err = (unsigned)(-1);
+	best_m = 0;
+	best_clk = 0;
+	best_div = 0;
+	for (clk = 0; clk < NUM_CLOCKS; clk++) {
+		for (div = 0; div < pwm_chip->pwm_total_pre_divs; div++) {
+			/* period_n = (PWM Period / N) */
+			/* tmp_p = (Pre-divide * Clock Period) * 2^m */
+			tmp_p = pt_t[div][clk];
+
+			for (m = 0; m <= PM8XXX_PWM_M_MAX; m++) {
+				if (period_n > tmp_p)
+					cur_err = period_n - tmp_p;
+				else
+					cur_err = tmp_p - period_n;
+
+				if (cur_err < min_err) {
+					min_err = cur_err;
+					best_m = m;
+					best_clk = clk;
+					best_div = div;
+				}
+
+				if (m && cur_err > last_err)
+					/* Break for bigger cur_err */
+					break;
+
+				last_err = cur_err;
+				tmp_p <<= 1;
+			}
+		}
+	}
+
+	/* Use higher resolution */
+	if (best_m >= 3 && n == 6) {
+		n += 3;
+		best_m -= 3;
+	}
+
+	period->pwm_size = n;
+	period->clk = best_clk;
+	period->pre_div = best_div;
+	period->pre_div_exp = best_m;
+}
+
+
 static void pm8xxx_pwm_calc_period(unsigned int period_us,
 				   struct pm8xxx_pwm_period *period)
 {
@@ -402,6 +460,29 @@ static void pm8xxx_pwm_calc_period(unsigned int period_us,
 	period->pre_div = best_div;
 	period->pre_div_exp = best_m;
 }
+
+static void pm8xxx_pwm_calc_pwm_value_in_p1us_unit(struct pwm_device *pwm,
+	unsigned int p1_period_us,
+	unsigned int p1_duty_us)
+{
+	unsigned int max_pwm_value, tmp;
+	unsigned int duty_us = p1_duty_us;
+	unsigned int period_us = p1_period_us;
+
+	/* Figure out pwm_value with overflow handling */
+	tmp = 1 << (sizeof(tmp) * 8 - pwm->period.pwm_size);
+	if (duty_us < tmp) {
+		tmp = duty_us << pwm->period.pwm_size;
+		pwm->pwm_value = tmp / period_us;
+	} else {
+		tmp = period_us >> pwm->period.pwm_size;
+		pwm->pwm_value = duty_us / tmp;
+	}
+	max_pwm_value = (1 << pwm->period.pwm_size) - 1;
+	if (pwm->pwm_value > max_pwm_value)
+		pwm->pwm_value = max_pwm_value;
+}
+
 
 static void pm8xxx_pwm_calc_pwm_value(struct pwm_device *pwm,
 				      unsigned int period_us,
@@ -728,6 +809,71 @@ void pwm_free(struct pwm_device *pwm)
 	mutex_unlock(&pwm->chip->pwm_mutex);
 }
 EXPORT_SYMBOL_GPL(pwm_free);
+
+/**
+ * pwm_config_in_p1us_unit - change a PWM device configuration in 0.1us unit
+ * for high resoultion & high frequency purpose
+ * @pwm: the PWM device
+ * @p1_period_us: period in 0.1 microseconds
+ * @p1_duty_us: duty cycle in 0.1 microseconds
+ */
+ int pwm_config_in_p1us_unit(struct pwm_device *pwm, int p1_duty_us, int p1_period_us)
+ {
+	struct pm8xxx_pwm_period *period;
+	int	rc = 0;
+	int duty_us = p1_duty_us /10;
+	int period_us = p1_period_us /10;
+	if (pwm == NULL || IS_ERR(pwm) ||
+		duty_us > period_us ||
+		(unsigned)period_us > PM8XXX_PWM_PERIOD_MAX ||
+		(unsigned)period_us < PM8XXX_PWM_PERIOD_MIN) {
+		pr_err("Invalid pwm handle or parameters\n");
+		return -EINVAL;
+	}
+	if (pwm->chip == NULL) {
+		pr_err("No pwm_chip\n");
+		return -ENODEV;
+	}
+
+	period = &pwm->period;
+
+	mutex_lock(&pwm->chip->pwm_mutex);
+
+	if (!pwm->in_use) {
+		rc = -EINVAL;
+		goto out_unlock;
+	}
+
+	if (pwm->pwm_period != period_us) {
+		pm8xxx_pwm_calc_period_force_9bit_mode(period_us, period);
+		pm8xxx_pwm_save_period(pwm);
+		pwm->pwm_period = period_us;
+	}
+
+	pm8xxx_pwm_calc_pwm_value_in_p1us_unit(pwm, p1_period_us, p1_duty_us);
+	pm8xxx_pwm_save_pwm_value(pwm);
+
+	if (pwm_chip->is_lpg_supported) {
+		pm8xxx_pwm_save(&pwm->pwm_lpg_ctl[1],
+			PM8XXX_PWM_BYPASS_LUT, PM8XXX_PWM_BYPASS_LUT);
+
+		pm8xxx_pwm_bank_sel(pwm);
+		rc = pm8xxx_lpg_pwm_write(pwm, 1, 6);
+	} else {
+		rc = pm8xxx_pwm_write(pwm);
+	}
+
+	pr_debug("duty/period=%u/%u usec: pwm_value=%d (of %d)\n",
+		(unsigned)duty_us, (unsigned)period_us,
+		pwm->pwm_value, 1 << period->pwm_size);
+
+	out_unlock:
+		mutex_unlock(&pwm->chip->pwm_mutex);
+		return rc;
+}
+EXPORT_SYMBOL_GPL(pwm_config_in_p1us_unit);
+
+
 
 /**
  * pwm_config - change a PWM device configuration

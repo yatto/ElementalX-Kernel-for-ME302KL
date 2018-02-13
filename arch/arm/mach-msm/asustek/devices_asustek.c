@@ -147,8 +147,8 @@ static struct resource resources_asustek_pcbid[] = {
 		.flags	= IORESOURCE_IO,
 	},
 	{
-		.start	= 1,
-		.end	= 1,
+		.start	= 2,
+		.end	= 2,
 		.name	= "PCB_ID3",
 		.flags	= IORESOURCE_IO,
 	},

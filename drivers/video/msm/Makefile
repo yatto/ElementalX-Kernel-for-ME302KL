@@ -150,6 +150,7 @@ obj-$(CONFIG_FB_MSM_MIPI_CHIMEI_WXGA) += mipi_chimei_wxga_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_CHIMEI_WUXGA) += mipi_chimei_wuxga.o
 obj-$(CONFIG_FB_MSM_MIPI_NOVATEK_1080_HD_PT) += mipi_novatek_1080P_pt.o
 obj-$(CONFIG_FB_MSM_MIPI_LG_1080_HD_PT) += mipi_lg_1080P_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_ORISE_1080_HD) += mipi_auo_video_1080P.o
 obj-$(CONFIG_FB_MSM_MIPI_JDI_1080_HD_PT) += mipi_JDI_1080P_pt.o
 endif
 

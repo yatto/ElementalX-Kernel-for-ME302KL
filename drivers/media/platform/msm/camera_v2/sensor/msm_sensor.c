@@ -958,16 +958,23 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 					PM8921_GPIO_PM_TO_SYS(31)));
 
 				msleep(20);
-			} else {
+			} else {/*
 				rc = pm8xxx_gpio_config(
-						PM8921_GPIO_PM_TO_SYS(43),
+						PM8921_GPIO_PM_TO_SYS(12), flo (43) 
 						&pm_isp_gpio_high);
 				if (rc != 0)
-					pr_err("gpio 43 CAM_RST config high fail\n");
+					pr_err("gpio 12 CAM_RST_DUMA config high fail\n");
 				else
-					pr_err("gpio 43 CAM_RST(%d)\n",
-					gpio_get_value(
-					PM8921_GPIO_PM_TO_SYS(43)));
+					pr_err("gpio 12 CAM_RST_DUMA(%d)\n",
+					gpio_get_value(PM8921_GPIO_PM_TO_SYS(12))); flo (43) */
+				rc = pm8xxx_gpio_config(
+						PM8921_GPIO_PM_TO_SYS(10), 
+						&pm_isp_gpio_high);
+				if (rc != 0)
+					pr_err("gpio 10 CAM_PWDN_DUMA config high fail\n");
+				else
+					pr_err("gpio 10 CAM_PWDN_DUMA(%d)\n",
+					gpio_get_value(PM8921_GPIO_PM_TO_SYS(10)));
 			}
 			if (data->i2c_conf && data->i2c_conf->use_i2c_mux)
 				msm_sensor_enable_i2c_mux(data->i2c_conf);
@@ -1127,11 +1134,17 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 						__func__);
 			} else {
 				rc = pm8xxx_gpio_config(
-					PM8921_GPIO_PM_TO_SYS(43),
+					PM8921_GPIO_PM_TO_SYS(10), 
 					&pm_isp_gpio_low);
 				if (rc != 0)
-					pr_err("%s: CAM_RST config low fail\n",
+					pr_err("%s: CAM_PWDN_DUMA config low fail\n",
 						__func__);
+				/*rc = pm8xxx_gpio_config(
+					PM8921_GPIO_PM_TO_SYS(12), FLO (43) 
+					&pm_isp_gpio_low);
+				if (rc != 0)
+					pr_err("%s: CAM_RST_DUMA config low fail\n",
+						__func__);*/
 			}
 			break;
 		default:

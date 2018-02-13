@@ -5,3 +5,6 @@
 #FLO/DEB
 obj-$(CONFIG_MACH_APQ8064_FLO) += flo/
 
+#DUMA
+obj-$(CONFIG_MACH_APQ8064_DUMA) += duma/
+

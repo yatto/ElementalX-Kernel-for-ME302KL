@@ -5,6 +5,9 @@
 #flo/deb
 source "arch/arm/mach-msm/asustek/flo/Kconfig"
 
+#duma
+source "arch/arm/mach-msm/asustek/duma/Kconfig"
+
 config MACH_ASUSTEK_DUMMY
 	depends on ARCH_APQ8064
 	select MACH_ASUSTEK

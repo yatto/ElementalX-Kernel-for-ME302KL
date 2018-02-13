@@ -2588,7 +2588,7 @@ static int mdp_bus_scale_register(void)
 static int bus_index = 1;
 int mdp_bus_scale_update_request(u64 ab, u64 ib)
 {
-	lcd_type type = asustek_get_lcd_type();
+	/*lcd_type type = asustek_get_lcd_type();*/
 
 	if (mdp_bus_scale_handle < 1) {
 		pr_err("%s invalid bus handle\n", __func__);
@@ -2602,15 +2602,15 @@ int mdp_bus_scale_update_request(u64 ab, u64 ib)
 	/* ping pong bus_index between table entry 1 and 2 */
 	bus_index++;
 	bus_index = (bus_index > 2) ? 1 : bus_index;
-
+/*
 	if (type==0) //keep original ab, ib calculation for JDI panel
 		mdp_bus_usecases[bus_index].vectors->ab = min(ab, mdp_max_bw);
-	else
+	else*/
 		mdp_bus_usecases[bus_index].vectors->ab = mdp_max_bw;
 	ib = max(ib, ab);
-	if (type==0) //keep original ab, ib calculation for JDI panel
+/*	if (type==0) //keep original ab, ib calculation for JDI panel
 		mdp_bus_usecases[bus_index].vectors->ib = min(ib, mdp_max_bw);
-	else
+	else*/
 		mdp_bus_usecases[bus_index].vectors->ib = mdp_max_bw;
 
 	pr_debug("%s: handle=%d index=%d ab=%llu ib=%llu\n", __func__,

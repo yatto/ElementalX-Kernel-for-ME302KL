@@ -425,6 +425,9 @@ static void ulpi_init(struct msm_otg *motg)
 			} else if(machine_is_apq8064_deb()) {
                                 printk(KERN_INFO"Host mode: Set DC level as 0x61 for deb.\n");
                                 ulpi_write(&motg->phy, 0x61, seq[1]);
+			} else if(machine_is_apq8064_duma()) {
+                                printk(KERN_INFO"Host mode: Set DC level seq[1]=%x\n",seq[1]);
+                                ulpi_write(&motg->phy, 0x61, seq[1]);
 			}
 		} else {
 			ulpi_write(&motg->phy, seq[0], seq[1]);
@@ -1243,12 +1246,13 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 		return;
 #ifdef CONFIG_FORCE_FAST_CHARGE
 	if (force_fast_charge == 1) {
-			mA = USB_FASTCHG_LOAD;
-			pr_info("USB fast charging is ON - 1000mA.\n");
+		mA = USB_FASTCHG_LOAD;
+		pr_info("USB fast charging if ON - 1000mA.\n");
 	} else {
-		pr_info("USB fast charging is OFF.\n");
-	}
+		pr_info("USB fast chargin if OFF.\n");
+	}	
 #endif
+
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
 
 	pm8921_charger_vbus_draw(mA);

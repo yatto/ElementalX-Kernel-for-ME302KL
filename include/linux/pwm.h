@@ -20,6 +20,8 @@ void __weak pwm_free(struct pwm_device *pwm);
  */
 int __weak pwm_config(struct pwm_device *pwm, int duty_ns, int period_ns);
 
+int __weak pwm_config_in_p1us_unit(struct pwm_device *pwm, int duty_ns, int period_ns);
+
 /*
  * pwm_enable - start a PWM output toggling
  */

@@ -382,6 +382,11 @@ config FB_MSM_MIPI_ORISE_CMD_720P_PT
 	select FB_MSM_MIPI_DSI_ORISE
 	default n
 
+config FB_MSM_MIPI_ORISE_1080_HD
+	bool
+	select FB_MSM_MIPI_DSI_ORISE
+	default n
+
 config FB_MSM_MIPI_RENESAS_VIDEO_FWVGA_PT
 	bool
 	select FB_MSM_MIPI_DSI_RENESAS
@@ -481,6 +486,10 @@ config FB_MSM_MIPI_LG_VIDEO_MODE
 config FB_MSM_MIPI_JDI_CMD_MODE
 	bool "MIPI JDI 1080P HD PT Panel"
 	select FB_MSM_MIPI_JDI_1080_HD_PT
+
+config FB_MSM_MIPI_ORISE_VIDEO_MODE
+	bool "MIPI ORISE 1080P HD Panel"
+	select FB_MSM_MIPI_ORISE_1080_HD
 
 # end the multiple mipi panels config
 

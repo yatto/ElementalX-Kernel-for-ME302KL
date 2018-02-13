@@ -1,0 +1,6 @@
+config MACH_APQ8064_DUMA
+	depends on ARCH_APQ8064
+	select MACH_ASUSTEK
+	bool "APQ8064 DUMA"
+	help
+	  Support for ASUSTek DUMA device.
