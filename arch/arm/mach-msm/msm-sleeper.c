@@ -18,52 +18,81 @@
 #include <linux/cpu.h>
 #include <linux/module.h>
 #include <linux/cpufreq.h>
+#include <linux/notifier.h>
+#include <linux/fb.h>
 #include <mach/cpufreq.h>
 
-#define MSM_SLEEPER_MAJOR_VERSION	1
+#define MSM_SLEEPER_MAJOR_VERSION	3
 #define MSM_SLEEPER_MINOR_VERSION	2
 
 extern uint32_t maxscroff;
 extern uint32_t maxscroff_freq;
 extern uint32_t ex_max_freq;
-static int limit_set = 0;
+static int limit_set = 0; //Disable for now to fix oreo building
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void msm_sleeper_early_suspend(struct early_suspend *h)
+
+static void msm_sleeper_suspend(void)
 {
 	int cpu;
 
-	if (maxscroff) {
+	//if (maxscroff) {
 		for_each_possible_cpu(cpu) {
 			msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, maxscroff_freq);
 			pr_info("msm-sleeper: limit max frequency to: %d\n", maxscroff_freq);
 		}
 		limit_set = 1;
-	}
+	//}
 	return; 
 }
 
-static void msm_sleeper_late_resume(struct early_suspend *h)
+static void msm_sleeper_resume(void)
 {
 	int cpu;
 
-	if (!limit_set)
-		return;
+	/*if (!limit_set)
+		return;*/
 
 	for_each_possible_cpu(cpu) {
 		msm_cpufreq_set_freq_limits(cpu, MSM_CPUFREQ_NO_LIMIT, ex_max_freq);
-		pr_info("msm-sleeper: restore max frequency.\n");
+		pr_info("msm-sleeper: restore max frequency to %d\n", MSM_CPUFREQ_NO_LIMIT);
 	}
 	limit_set = 0;
 	return; 
 }
 
-static struct early_suspend msm_sleeper_early_suspend_driver = {
-	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 10,
-	.suspend = msm_sleeper_early_suspend,
-	.resume = msm_sleeper_late_resume,
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK) {
+		blank = evdata->data;
+		switch (*blank) {
+			case FB_BLANK_UNBLANK:
+				//display on
+				if (limit_set)
+					msm_sleeper_resume();
+				break;
+			case FB_BLANK_POWERDOWN:
+			case FB_BLANK_HSYNC_SUSPEND:
+			case FB_BLANK_VSYNC_SUSPEND:
+			case FB_BLANK_NORMAL:
+				//display off
+				if (maxscroff)
+					msm_sleeper_suspend();
+				break;
+		}
+	}
+
+	return 0;
+}
+
+static struct notifier_block msm_sleeper_fb_notif =
+{
+	.notifier_call = fb_notifier_callback,
 };
-#endif
+
 
 static int __init msm_sleeper_init(void)
 {
@@ -71,9 +100,7 @@ static int __init msm_sleeper_init(void)
 		 MSM_SLEEPER_MAJOR_VERSION,
 		 MSM_SLEEPER_MINOR_VERSION);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	register_early_suspend(&msm_sleeper_early_suspend_driver);
-#endif
+	fb_register_client(&msm_sleeper_fb_notif);
 	return 0;
 }
 
