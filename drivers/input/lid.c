@@ -32,7 +32,7 @@
 
 struct delayed_work lid_hall_sensor_work;
 
-int lid_closed = 0;
+// int lid_closed = 0; DUMA Define Lid_closed in touchscreen driver.
 
 int enable_lid = 1;
 module_param( enable_lid, int, 0644 );
