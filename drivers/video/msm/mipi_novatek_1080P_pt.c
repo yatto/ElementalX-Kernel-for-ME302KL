@@ -72,8 +72,8 @@ static int __init mipi_novatek_1080p_pt_init(void)
 
 	printk("%s+\n", __func__);
 
-	pinfo.xres = 1200;
-	pinfo.yres = 1920;
+	pinfo.xres = 1920;
+	pinfo.yres = 1200;
 	pinfo.lcdc.xres_pad = 0;
 	pinfo.lcdc.yres_pad = 0;
 
