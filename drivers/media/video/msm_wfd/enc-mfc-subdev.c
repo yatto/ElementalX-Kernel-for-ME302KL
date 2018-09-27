@@ -1420,7 +1420,7 @@ static long venc_set_vui_timing_info(struct video_client_ctx *client_ctx,
 	if (!client_ctx)
 		return -EINVAL;
 	if (inst->framerate_mode == VENC_MODE_VFR) {
-		WFD_MSG_ERR("VUI timing info not suported in VFR mode ");
+		WFD_MSG_INFO("VUI timing info not suported in VFR mode ");
 		return -EINVAL;
 	}
 	vcd_property_hdr.prop_id = VCD_I_ENABLE_VUI_TIMING_INFO;
@@ -2096,6 +2096,12 @@ static long venc_alloc_recon_buffers(struct v4l2_subdev *sd, void *arg)
 					goto unmap_ion_alloc;
 				}
 
+				 msm_ion_do_cache_op(
+					 client_ctx->user_ion_client,
+					 client_ctx->recon_buffer_ion_handle[i],
+					 ctrl->kernel_virtual_addr,
+					 ctrl->buffer_size,
+					 ION_IOC_CLEAN_INV_CACHES);
 			}
 			ctrl->physical_addr =  (u8 *) phy_addr;
 			ctrl->dev_addr = ctrl->physical_addr;
