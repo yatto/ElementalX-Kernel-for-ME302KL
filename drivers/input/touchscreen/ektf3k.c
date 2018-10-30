@@ -133,8 +133,8 @@ static unsigned int gPrint_point = 0;
 #define STRESS_IOCTL_START_HEAVY 2
 #define STRESS_IOCTL_START_NORMAL 1
 #define STRESS_IOCTL_END 0
-#define START_NORMAL	(HZ/5)
-#define START_HEAVY	(HZ/200)
+#define START_NORMAL	(200)
+#define START_HEAVY	(5)
 static int poll_mode=0;
 static struct delayed_work elan_poll_data_work;
 static struct workqueue_struct *stress_work_queue;
@@ -2228,12 +2228,12 @@ long elan_stress_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		case STRESS_POLL_DATA:
 			if (arg == STRESS_IOCTL_START_HEAVY){
 				printk("touch sensor heavey\n");
-			poll_mode = START_HEAVY;
+			poll_mode = msecs_to_jiffies(START_HEAVY);
 			queue_delayed_work(stress_work_queue, &elan_poll_data_work, poll_mode);
 			}
 			else if (arg == STRESS_IOCTL_START_NORMAL){
 				printk("touch sensor normal\n");
-				poll_mode = START_NORMAL;
+				poll_mode = msecs_to_jiffies(START_NORMAL);
 				queue_delayed_work(stress_work_queue, &elan_poll_data_work, poll_mode);
 			}
 			else if  (arg == STRESS_IOCTL_END){
