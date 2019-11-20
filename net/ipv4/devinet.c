@@ -732,7 +732,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 
 	case SIOCSIFFLAGS:
 		ret = -EACCES;
-		if (!capable(CAP_NET_ADMIN))
+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
 			goto out;
 		break;
 	case SIOCSIFADDR:	/* Set interface address (and family) */
@@ -741,7 +741,7 @@ int devinet_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 	case SIOCSIFNETMASK: 	/* Set the netmask for the interface */
 	case SIOCKILLADDR:	/* Nuke all sockets on this address */
 		ret = -EACCES;
-		if (!capable(CAP_NET_ADMIN))
+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
 			goto out;
 		ret = -EINVAL;
 		if (sin->sin_family != AF_INET)
@@ -1631,6 +1631,10 @@ static struct devinet_sysctl_table {
 					      "force_igmp_version"),
 		DEVINET_SYSCTL_FLUSHING_ENTRY(PROMOTE_SECONDARIES,
 					      "promote_secondaries"),
+		DEVINET_SYSCTL_FLUSHING_ENTRY(DROP_UNICAST_IN_L2_MULTICAST,
+					      "drop_unicast_in_l2_multicast"),
+		DEVINET_SYSCTL_RW_ENTRY(DROP_GRATUITOUS_ARP,
+					"drop_gratuitous_arp"),
 	},
 };
 

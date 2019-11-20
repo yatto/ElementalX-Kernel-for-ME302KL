@@ -803,6 +803,14 @@ static int arp_process(struct sk_buff *skb)
 	if (ipv4_is_loopback(tip) || ipv4_is_multicast(tip))
 		goto out;
 
+ /*
+  *	For some 802.11 wireless deployments (and possibly other networks),
+  *	there will be an ARP proxy and gratuitous ARP frames are attacks
+  *	and thus should not be accepted.
+  */
+	if (sip == tip && IN_DEV_ORCONF(in_dev, DROP_GRATUITOUS_ARP))
+		goto out;
+
 /*
  *     Special case: We must set Frame Relay source Q.922 address
  */
@@ -1171,7 +1179,7 @@ int arp_ioctl(struct net *net, unsigned int cmd, void __user *arg)
 	switch (cmd) {
 	case SIOCDARP:
 	case SIOCSARP:
-		if (!capable(CAP_NET_ADMIN))
+		if (!ns_capable(net->user_ns, CAP_NET_ADMIN))
 			return -EPERM;
 	case SIOCGARP:
 		err = copy_from_user(&r, arg, sizeof(struct arpreq));
